@@ -196,6 +196,7 @@ button.active {
 </div>
 
 <script>
+
 const SpeechRecognition =
     window.SpeechRecognition ||
     window.webkitSpeechRecognition;
@@ -211,6 +212,7 @@ let listening = false;
 let speaking = false;
 
 function speak(text) {
+
     if (!window.speechSynthesis) {
         responseText.textContent = text;
         return;
@@ -248,116 +250,94 @@ function speak(text) {
     window.speechSynthesis.speak(voice);
 }
 
-function respond(command) {
+async function respond(command) {
+
     const text = command.toLowerCase().trim();
 
-    let answer = "";
-
     if (
-        text.includes("hello") ||
-        text.includes("hi") ||
-        text.includes("hey")
-    ) {
-        answer = "Hello. I'm RAVEN. How can I help you?";
-    }
-
-    else if (
-        text.includes("how are you") ||
-        text.includes("how are you doing")
-    ) {
-        answer = "I'm doing great. All systems are ready.";
-    }
-
-    else if (
-        text.includes("what is your name") ||
-        text.includes("who are you") ||
-        text.includes("your name")
-    ) {
-        answer = "My name is RAVEN. Your personal AI assistant.";
-    }
-
-    else if (
-        text.includes("what time is it") ||
-        text.includes("current time") ||
-        text.includes("time")
-    ) {
-        const time = new Date().toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit"
-        });
-
-        answer = "The current time is " + time + ".";
-    }
-
-    else if (
-        text.includes("what is today's date") ||
-        text.includes("what day is it") ||
-        text.includes("today's date") ||
-        text.includes("date")
-    ) {
-        const date = new Date().toLocaleDateString([], {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            year: "numeric"
-        });
-
-        answer = "Today is " + date + ".";
-    }
-
-    else if (
-        text.includes("thank you") ||
-        text.includes("thanks")
-    ) {
-        answer = "You're welcome.";
-    }
-
-    else if (
-        text.includes("who made you") ||
-        text.includes("who created you")
-    ) {
-        answer = "I was created as your personal RAVEN assistant.";
-    }
-
-    else if (
-        text.includes("what can you do") ||
-        text.includes("what can you do for me")
-    ) {
-        answer = "I can listen to your voice, answer commands, tell you the time and date, and talk back to you.";
-    }
-
-    else if (
         text.includes("stop talking") ||
         text.includes("be quiet") ||
-        text.includes("stop")
+        text === "stop"
     ) {
         window.speechSynthesis.cancel();
+        speaking = false;
         statusText.textContent = "Ready";
         return;
     }
 
-    else {
-        answer = "I heard you say " + command + ". I don't know how to respond to that yet.";
-    }
+    responseText.textContent = "Searching...";
+    statusText.textContent = "RAVEN is searching the web...";
 
-    responseText.textContent = answer;
-    speak(answer);
+    try {
+
+        const response = await fetch(
+            "http://127.0.0.1:3000/ask",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    message: command
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.error || "Backend error"
+            );
+        }
+
+        const answer =
+            data.answer ||
+            "I couldn't find an answer.";
+
+        responseText.textContent = answer;
+
+        speak(answer);
+
+    } catch (error) {
+
+        console.error(error);
+
+        statusText.textContent = "Connection Error";
+
+        const message =
+            "I can't connect to my web search brain. Please make sure the RAVEN backend is running in Termux.";
+
+        responseText.textContent = message;
+
+        speak(message);
+    }
 }
 
 function startListening() {
+
     if (!SpeechRecognition) {
-        statusText.textContent = "Speech recognition not supported";
-        responseText.textContent = "Please open RAVEN using Google Chrome on Android.";
+
+        statusText.textContent =
+            "Speech recognition not supported";
+
+        responseText.textContent =
+            "Please open RAVEN using Google Chrome.";
+
         return;
     }
 
     if (speaking) {
+
         window.speechSynthesis.cancel();
+
         speaking = false;
     }
 
     if (listening) {
+
         recognition.stop();
+
         return;
     }
 
@@ -369,82 +349,141 @@ function startListening() {
     recognition.maxAlternatives = 1;
 
     recognition.onstart = function() {
+
         listening = true;
-        statusText.textContent = "Listening...";
-        responseText.textContent = "I'm listening.";
+
+        statusText.textContent =
+            "Listening...";
+
+        responseText.textContent =
+            "I'm listening.";
+
         heardText.textContent = "";
-        button.textContent = "🔴 STOP LISTENING";
+
+        button.textContent =
+            "🔴 STOP LISTENING";
+
         button.classList.add("active");
+
         app.classList.add("listening");
     };
 
     recognition.onresult = function(event) {
-        const command = event.results[0][0].transcript;
 
-        heardText.textContent = "You said: " + command;
+        const command =
+            event.results[0][0].transcript;
+
+        heardText.textContent =
+            "You said: " + command;
 
         listening = false;
-        button.textContent = "🎤 TALK TO RAVEN";
+
+        button.textContent =
+            "🎤 TALK TO RAVEN";
+
         button.classList.remove("active");
+
         app.classList.remove("listening");
 
         respond(command);
     };
 
     recognition.onerror = function(event) {
+
         listening = false;
 
-        button.textContent = "🎤 TALK TO RAVEN";
+        button.textContent =
+            "🎤 TALK TO RAVEN";
+
         button.classList.remove("active");
+
         app.classList.remove("listening");
 
         if (event.error === "not-allowed") {
-            statusText.textContent = "Microphone blocked";
-            responseText.textContent = "Please allow microphone permission for Chrome.";
+
+            statusText.textContent =
+                "Microphone blocked";
+
+            responseText.textContent =
+                "Please allow microphone permission for Chrome.";
         }
 
         else if (event.error === "no-speech") {
-            statusText.textContent = "No voice detected";
-            responseText.textContent = "I didn't hear you. Tap the button and try again.";
+
+            statusText.textContent =
+                "No voice detected";
+
+            responseText.textContent =
+                "I didn't hear you. Try again.";
         }
 
         else if (event.error === "network") {
-            statusText.textContent = "Network error";
-            responseText.textContent = "Speech recognition needs an internet connection.";
+
+            statusText.textContent =
+                "Network error";
+
+            responseText.textContent =
+                "Speech recognition needs internet.";
         }
 
         else {
-            statusText.textContent = "Recognition error";
-            responseText.textContent = "Something went wrong. Please try again.";
+
+            statusText.textContent =
+                "Recognition error";
+
+            responseText.textContent =
+                "Something went wrong. Try again.";
         }
     };
 
     recognition.onend = function() {
+
         listening = false;
 
         if (!speaking) {
-            button.textContent = "🎤 TALK TO RAVEN";
+
+            button.textContent =
+                "🎤 TALK TO RAVEN";
+
             button.classList.remove("active");
+
             app.classList.remove("listening");
 
-            if (statusText.textContent === "Listening...") {
-                statusText.textContent = "Ready";
+            if (
+                statusText.textContent ===
+                "Listening..."
+            ) {
+                statusText.textContent =
+                    "Ready";
             }
         }
     };
 
     try {
+
         recognition.start();
+
     } catch (error) {
+
         listening = false;
-        statusText.textContent = "Ready";
-        button.textContent = "🎤 TALK TO RAVEN";
+
+        statusText.textContent =
+            "Ready";
+
+        button.textContent =
+            "🎤 TALK TO RAVEN";
+
         button.classList.remove("active");
+
         app.classList.remove("listening");
     }
 }
 
-button.addEventListener("click", startListening);
+button.addEventListener(
+    "click",
+    startListening
+);
+
 </script>
 
 </body>
