@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAVEN AI</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: #05070d;
+    color: #00eaff;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.container {
+    width: 100%;
+    max-width: 500px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 25px;
+}
+
+.title {
+    font-size: 42px;
+    font-weight: bold;
+    letter-spacing: 8px;
+    margin-bottom: 10px;
+    text-shadow: 0 0 20px #00eaff;
+}
+
+.status {
+    font-size: 14px;
+    color: #8defff;
+    margin-bottom: 40px;
+    min-height: 20px;
+}
+
+.core {
+    width: 210px;
+    height: 210px;
+    border-radius: 50%;
+    border: 3px solid #00eaff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    box-shadow:
+        0 0 20px #00eaff,
+        0 0 60px rgba(0, 234, 255, 0.5),
+        inset 0 0 40px rgba(0, 234, 255, 0.2);
+    margin-bottom: 45px;
+}
+
+.core::before {
+    content: "";
+    position: absolute;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 2px solid #00eaff;
+    box-shadow: 0 0 25px #00eaff;
+    animation: pulse 2s infinite;
+}
+
+.core::after {
+    content: "";
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: #00eaff;
+    box-shadow:
+        0 0 20px #00eaff,
+        0 0 50px #00eaff;
+    animation: corePulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(0.9);
+        opacity: 0.5;
+    }
+
+    50% {
+        transform: scale(1.1);
+        opacity: 1;
+    }
+}
+
+@keyframes corePulse {
+    0%, 100% {
+        transform: scale(0.8);
+        opacity: 0.7;
+    }
+
+    50% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.listening .core {
+    animation: listening 0.8s infinite;
+}
+
+@keyframes listening {
+    0%, 100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+button {
+    width: 250px;
+    padding: 16px;
+    border: 2px solid #00eaff;
+    border-radius: 30px;
+    background: rgba(0, 234, 255, 0.08);
+    color: #00eaff;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(0, 234, 255, 0.4);
+}
+
+button:active {
+    transform: scale(0.96);
+}
+
+button.active {
+    background: #00eaff;
+    color: #05070d;
+    box-shadow: 0 0 35px #00eaff;
+}
+
+.response {
+    width: 100%;
+    min-height: 70px;
+    margin-top: 30px;
+    padding: 15px;
+    text-align: center;
+    color: #d9fbff;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.heard {
+    width: 100%;
+    min-height: 25px;
+    margin-top: 10px;
+    text-align: center;
+    color: #6fdfff;
+    font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container" id="app">
+
+    <div class="title">RAVEN</div>
+
+    <div class="status" id="status">
+        Ready
+    </div>
+
+    <div class="core"></div>
+
+    <button id="talkButton">
+        🎤 TALK TO RAVEN
+    </button>
+
+    <div class="heard" id="heard"></div>
+
+    <div class="response" id="response">
+        Tap the button and speak to me.
+    </div>
+
+</div>
+
+<script>
+const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+const statusText = document.getElementById("status");
+const responseText = document.getElementById("response");
+const heardText = document.getElementById("heard");
+const button = document.getElementById("talkButton");
+const app = document.getElementById("app");
+
+let recognition;
+let listening = false;
+let speaking = false;
+
+function speak(text) {
+    if (!window.speechSynthesis) {
+        responseText.textContent = text;
+        return;
+    }
+
+    speaking = true;
+
+    window.speechSynthesis.cancel();
+
+    const voice = new SpeechSynthesisUtterance(text);
+
+    voice.lang = "en-US";
+    voice.rate = 0.9;
+    voice.pitch = 0.8;
+    voice.volume = 1;
+
+    voice.onstart = function() {
+        statusText.textContent = "Speaking...";
+    };
+
+    voice.onend = function() {
+        speaking = false;
+        statusText.textContent = "Ready";
+        button.classList.remove("active");
+        app.classList.remove("listening");
+    };
+
+    voice.onerror = function() {
+        speaking = false;
+        statusText.textContent = "Ready";
+        button.classList.remove("active");
+        app.classList.remove("listening");
+    };
+
+    window.speechSynthesis.speak(voice);
+}
+
+function respond(command) {
+    const text = command.toLowerCase().trim();
+
+    let answer = "";
+
+    if (
+        text.includes("hello") ||
+        text.includes("hi") ||
+        text.includes("hey")
+    ) {
+        answer = "Hello. I'm RAVEN. How can I help you?";
+    }
+
+    else if (
+        text.includes("how are you") ||
+        text.includes("how are you doing")
+    ) {
+        answer = "I'm doing great. All systems are ready.";
+    }
+
+    else if (
+        text.includes("what is your name") ||
+        text.includes("who are you") ||
+        text.includes("your name")
+    ) {
+        answer = "My name is RAVEN. Your personal AI assistant.";
+    }
+
+    else if (
+        text.includes("what time is it") ||
+        text.includes("current time") ||
+        text.includes("time")
+    ) {
+        const time = new Date().toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit"
+        });
+
+        answer = "The current time is " + time + ".";
+    }
+
+    else if (
+        text.includes("what is today's date") ||
+        text.includes("what day is it") ||
+        text.includes("today's date") ||
+        text.includes("date")
+    ) {
+        const date = new Date().toLocaleDateString([], {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric"
+        });
+
+        answer = "Today is " + date + ".";
+    }
+
+    else if (
+        text.includes("thank you") ||
+        text.includes("thanks")
+    ) {
+        answer = "You're welcome.";
+    }
+
+    else if (
+        text.includes("who made you") ||
+        text.includes("who created you")
+    ) {
+        answer = "I was created as your personal RAVEN assistant.";
+    }
+
+    else if (
+        text.includes("what can you do") ||
+        text.includes("what can you do for me")
+    ) {
+        answer = "I can listen to your voice, answer commands, tell you the time and date, and talk back to you.";
+    }
+
+    else if (
+        text.includes("stop talking") ||
+        text.includes("be quiet") ||
+        text.includes("stop")
+    ) {
+        window.speechSynthesis.cancel();
+        statusText.textContent = "Ready";
+        return;
+    }
+
+    else {
+        answer = "I heard you say " + command + ". I don't know how to respond to that yet.";
+    }
+
+    responseText.textContent = answer;
+    speak(answer);
+}
+
+function startListening() {
+    if (!SpeechRecognition) {
+        statusText.textContent = "Speech recognition not supported";
+        responseText.textContent = "Please open RAVEN using Google Chrome on Android.";
+        return;
+    }
+
+    if (speaking) {
+        window.speechSynthesis.cancel();
+        speaking = false;
+    }
+
+    if (listening) {
+        recognition.stop();
+        return;
+    }
+
+    recognition = new SpeechRecognition();
+
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = function() {
+        listening = true;
+        statusText.textContent = "Listening...";
+        responseText.textContent = "I'm listening.";
+        heardText.textContent = "";
+        button.textContent = "🔴 STOP LISTENING";
+        button.classList.add("active");
+        app.classList.add("listening");
+    };
+
+    recognition.onresult = function(event) {
+        const command = event.results[0][0].transcript;
+
+        heardText.textContent = "You said: " + command;
+
+        listening = false;
+        button.textContent = "🎤 TALK TO RAVEN";
+        button.classList.remove("active");
+        app.classList.remove("listening");
+
+        respond(command);
+    };
+
+    recognition.onerror = function(event) {
+        listening = false;
+
+        button.textContent = "🎤 TALK TO RAVEN";
+        button.classList.remove("active");
+        app.classList.remove("listening");
+
+        if (event.error === "not-allowed") {
+            statusText.textContent = "Microphone blocked";
+            responseText.textContent = "Please allow microphone permission for Chrome.";
+        }
+
+        else if (event.error === "no-speech") {
+            statusText.textContent = "No voice detected";
+            responseText.textContent = "I didn't hear you. Tap the button and try again.";
+        }
+
+        else if (event.error === "network") {
+            statusText.textContent = "Network error";
+            responseText.textContent = "Speech recognition needs an internet connection.";
+        }
+
+        else {
+            statusText.textContent = "Recognition error";
+            responseText.textContent = "Something went wrong. Please try again.";
+        }
+    };
+
+    recognition.onend = function() {
+        listening = false;
+
+        if (!speaking) {
+            button.textContent = "🎤 TALK TO RAVEN";
+            button.classList.remove("active");
+            app.classList.remove("listening");
+
+            if (statusText.textContent === "Listening...") {
+                statusText.textContent = "Ready";
+            }
+        }
+    };
+
+    try {
+        recognition.start();
+    } catch (error) {
+        listening = false;
+        statusText.textContent = "Ready";
+        button.textContent = "🎤 TALK TO RAVEN";
+        button.classList.remove("active");
+        app.classList.remove("listening");
+    }
+}
+
+button.addEventListener("click", startListening);
+</script>
+
+</body>
+</html>
